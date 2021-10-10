@@ -14,6 +14,7 @@ import io.netty.util.ReferenceCountUtil;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import outbound.nettyClient.NettyHttpClient;
 
 import java.io.IOException;
 
@@ -36,7 +37,9 @@ public class HttpHandler extends ChannelInboundHandlerAdapter {
             FullHttpRequest fullRequest = (FullHttpRequest) msg;
             requestFilter.filter(fullRequest, ctx);
             // 启动服务端为 gateway-server-0.0.1-SNAPSHOT.jar
-            fetchGet(fullRequest, ctx, "http://localhost:8088/api/hello");
+//            fetchGet(fullRequest, ctx, "http://localhost:8088/api/hello");
+
+            fetchGetNetty(fullRequest, ctx, "localhost", 8088, "/api/hello");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -72,7 +75,21 @@ public class HttpHandler extends ChannelInboundHandlerAdapter {
                 ctx.flush();
             }
         }
+    }
 
+    /*
+     * 通过netty客户端访问真实的后台接口
+     */
+    private void fetchGetNetty(final FullHttpRequest fullRequest, final ChannelHandlerContext ctx, final String host, final int port, final String uri) {
+        FullHttpResponse response = null;
+        try {
+            NettyHttpClient client = new NettyHttpClient();
+            client.connect(host, port, uri, ctx);
+        } catch (Exception e) {
+            response = new DefaultFullHttpResponse(HTTP_1_1, NO_CONTENT);
+            ctx.writeAndFlush(response);
+            exceptionCaught(ctx, e);
+        }
     }
 
     @Override
