@@ -8,8 +8,10 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -50,6 +52,86 @@ public class JdbcMain {
             e.printStackTrace();
         }
         return i;
+    }
+
+    /**
+     * 手动开启事务的insert操作
+     *
+     * @param user
+     * @param connection
+     */
+    public static void insertWithTransaction(User user, Connection connection) {
+        if (connection == null) {
+            connection = getConnection();
+        }
+
+        Savepoint savepoint = null;
+
+        String sql = "insert into user (`name`, age, address) values (?,?,?)";
+        // 开始事务
+        try {
+            connection.setAutoCommit(false);
+            savepoint = connection.setSavepoint();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return;
+        }
+
+        try {
+            final PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            preparedStatement.setString(1, user.getName());
+            preparedStatement.setInt(2, user.getAge());
+            preparedStatement.setString(3, user.getAddress());
+            int updated = preparedStatement.executeUpdate();
+//            if(1==1){
+//                throw new RuntimeException("testerr");
+//            }
+            if (updated > 0) {//插入数据成功
+                connection.commit();
+            } else {
+                connection.rollback(savepoint);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                connection.rollback(savepoint);
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 批量插入
+     *
+     * @param users
+     * @param connection
+     */
+    public static void batchInsert(List<User> users, Connection connection) {
+        if (connection == null) {
+            connection = getConnection();
+        }
+
+        String sql = "insert into user (`name`, age, address) values (?,?,?)";
+
+        try {
+            connection.setAutoCommit(false);
+            PreparedStatement preparedStatement = connection.prepareStatement(sql);
+            for (User user : users) {
+                preparedStatement.setString(1, user.getName());
+                preparedStatement.setInt(2, user.getAge());
+                preparedStatement.setString(3, user.getAddress());
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
+            connection.commit();
+            preparedStatement.clearParameters();
+            preparedStatement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public static int update(User user, Connection connection) {
@@ -161,11 +243,31 @@ public class JdbcMain {
         user.setName("李四");
         update(user, null);
 
+        // batch insert
+        User user1 = new User("批量1", 20, "北京");
+        User user2 = new User("批量2", 20, "北京");
+        batchInsert(Arrays.asList(user1, user2), null);
+
         // select all
-        List<User> users1 = selectAll(null);
-        System.out.println("select all: " + users1);
+        List<User> users = selectAll(null);
+        System.out.println("select all: " + users);
 
         // delete
-        delete(user.getId(), null);
+        for (User deleteUser : users) {
+            delete(deleteUser.getId(), null);
+        }
+
+        // 事务
+        User user3 = new User("事务1", 20, "北京");
+        insertWithTransaction(user3,null);
+
+        // select all
+        users = selectAll(null);
+        System.out.println("select all: " + users);
+
+        // delete
+        for (User deleteUser : users) {
+            delete(deleteUser.getId(), null);
+        }
     }
 }
