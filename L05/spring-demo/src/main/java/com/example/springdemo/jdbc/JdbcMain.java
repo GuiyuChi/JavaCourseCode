@@ -16,6 +16,15 @@ import java.util.List;
 
 /**
  * 无连接池jdbc调用
+ * create table user
+ * (
+ *     id      bigint auto_increment
+ *         primary key,
+ *     name    varchar(255) null,
+ *     age     int          null,
+ *     address varchar(255) null
+ * )
+ *     charset = utf8;
  */
 public class JdbcMain {
     private static final String driver = "com.mysql.cj.jdbc.Driver";
