@@ -109,10 +109,10 @@ public class JdbcService {
         String headerSql = "insert into `order` (code, receiver,ship_address,ship_phone,goods_code,goods_name,goods_num,total_price) ";
         long begin = System.currentTimeMillis();
 
-        try{
+        try {
             connection.setAutoCommit(false);
-            Statement statement = connection.createStatement();;
-            for (int i = 0 ; i < insertRows; i++) {
+            Statement statement = connection.createStatement();
+            for (int i = 0; i < insertRows; i++) {
                 StringBuffer sql = new StringBuffer();
                 sql.append(headerSql);
                 sql.append(" values ('")
@@ -130,7 +130,7 @@ public class JdbcService {
 
             statement.executeBatch();
             connection.commit();
-        }catch (SQLException e){
+        } catch (SQLException e) {
             e.printStackTrace();
         }
         long spent = System.currentTimeMillis() - begin;
@@ -138,5 +138,46 @@ public class JdbcService {
         System.out.printf("batchInsert use %d ms\n", spent);
     }
 
+    /*
+     * 带步长的批量插入
+     *
+     * 100w prepare data use 1934 ms doAddBatchByStep use 12354 ms
+     * @param step
+     */
+    public void doAddBatchByStep(int step) {
+        Connection connection = getConnection();
+        long begin = System.currentTimeMillis();
+
+        final String headerSql = "insert into `order` (code, receiver,ship_address,ship_phone,goods_code,goods_name,goods_num,total_price) ";
+        try (Statement statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            for (int i = 0; i < insertRows; i = i + step) {
+                StringBuffer sql = new StringBuffer();
+                sql.append(headerSql);
+                sql.append(" values ");
+                for (int j = 0; j < step; j++) {
+                    sql.append(" ('")
+                            .append(getCode()).append("','")
+                            .append(receiver).append("','")
+                            .append(ship_address).append("','")
+                            .append(ship_phone).append("',")
+                            .append(goods_code).append(",'")
+                            .append(goods_name).append("',")
+                            .append(goods_num).append(",")
+                            .append(totalPrice.toString()).append("),");
+
+                }
+                sql.deleteCharAt(sql.length() - 1);
+                statement.addBatch(sql.toString());
+            }
+            System.out.printf("prepare data use %d ms\n", System.currentTimeMillis() - begin);
+            statement.executeBatch();
+            connection.commit();
+        } catch (Exception t) {
+            t.printStackTrace();
+        }
+        System.out.println("");
+        System.out.printf("doAddBatchByStep use %d ms\n", System.currentTimeMillis() - begin);
+    }
 
 }
